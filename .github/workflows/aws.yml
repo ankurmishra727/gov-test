@@ -5,57 +5,91 @@ on:
     branches:
       - main
 
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_REGION: 'eu-north-1'
-  EC2_HOST: '13.53.186.38'
-  EC2_USERNAME: 'ubuntu'
-
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-    - name: Install AWS CLI
-      run: |
-        sudo apt-get install -y awscli
-      - name: Set up JDK 17
-        uses: actions/setup-java@v2
-        with:
-          java-version: 17
-          distribution: 'adopt'
+
+      - name: Check if Maven is installed
+        run: |
+          mvn --version
+          echo "Maven is already installed"
+        continue-on-error: true
+
+      - name: Install Maven
+        if: ${{ failure() }}
+        run: |
+          sudo apt-get install -y maven
+
+      - name: Check if Java is installed
+        run: |
+          java -version
+          echo "Java is already installed"
+        continue-on-error: true
+
+      - name: Install Java
+        if: ${{ failure() }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y openjdk-17-jdk
 
       - name: Build with Maven
         run: |
           cd demo
           mvn clean install -f pom.xml
-    - name: Copy JAR to AWS EC2 instance
-      run: |
-        rm -rf deploy/*
-        scp -i demomachine.pem  target/*.jar ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }}:deploy/
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.EC2_HOST }}
-          username: ${{ env.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          script: |
-            cd deploy
-            if ! command -v java &> /dev/null; then
-              echo "JDK 17 is not installed"
-              sudo apt-get update -y && sudo apt-get install -y openjdk-17-jdk
+
+      - name: Stop the systemd service
+        run: |
+          sudo systemctl stop my-spring-app
+
+      - name: Clean deploy folder
+        run: |
+          rm -rf deploy
+
+      - name: Copy JAR files to deploy folder
+        run: |
+          mkdir deploy
+          cp demo/target/*.jar deploy/
+
+      - name: Check if systemd service file exists
+        id: check_service_file
+        run: |
+          if [ -f /etc/systemd/system/my-spring-app.service ]; then
+            echo "::set-output name=exists::true"
+          else
+            echo "::set-output name=exists::false"
+          fi
+
+      - name: Create systemd service file
+        run: |
+          if [[ "${{ steps.check_service_file.outputs.exists }}" == "false" ]]; then
+            jar_path=$(find deploy -name '*.jar' -type f)
+            if [[ -n $jar_path ]]; then
+              echo "[Unit]
+              Description=My Spring Boot Application
+              After=syslog.target
+
+              [Service]
+              User=spring
+              ExecStart=/usr/bin/java -jar $jar_path
+              Restart=always
+              SuccessExitStatus=143
+
+              [Install]
+              WantedBy=multi-user.target" | sudo tee /etc/systemd/system/my-spring-app.service
             else
-              echo "JDK 17 is already installed"
-              java -version
+              echo "No JAR file found in the deploy directory."
+              exit 1
             fi
-            if ! command -v mvn &> /dev/null; then
-              echo "Maven is not installed"
-              sudo apt-get install -y maven
-            else
-              echo "Maven is already installed"
-              mvn -version
-            fi
-            ls
+          else
+            echo "Systemd service file already exists. Skipping creation."
+
+      - name: Enable and start the systemd service
+        run: |
+          sudo systemctl enable my-spring-app
+
+      - name: Start the systemd service
+        run: |
+          sudo systemctl start my-spring-app
