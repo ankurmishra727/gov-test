@@ -21,11 +21,11 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Grant execute permissions to mvnw script
-        run: chmod +x InstagramClone/mvnw
+        run: chmod +x demo/mvnw
 
       - name: Install dependencies and build
         run: |
-          cd InstagramClone
+          cd demo
           ./mvnw clean install -Dmaven.repo.local=./.m2/repository
 
       - name: Deploy to EC2
