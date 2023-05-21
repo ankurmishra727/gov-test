@@ -23,6 +23,7 @@ jobs:
       - name: Install dependencies and build
         run: |
           cd InstagramClone
+          chmod +x mvnw
           ./mvnw clean install
 
       - name: Deploy to EC2
