@@ -1,4 +1,4 @@
-name: Deploy to AWS EC2
+name: Deploy Docker Container
 
 on:
   push:
@@ -13,83 +13,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Check if Maven is installed
+      - name: Check if Docker is installed
+        id: check_docker
         run: |
-          mvn --version
-          echo "Maven is already installed"
+          docker version --format '{{.Server.Version}}'
+          echo "::set-output name=installed::true"
         continue-on-error: true
 
-      - name: Install Maven
-        if: ${{ failure() }}
+      - name: Install Docker
+        if: steps.check_docker.outputs.installed != 'true'
         run: |
-          sudo apt-get install -y maven
+          curl -fsSL https://get.docker.com | sh
+          sudo usermod -aG docker $USER
 
-      - name: Check if Java is installed
+      - name: Build Docker image
+        run: docker build -t my-spring-app .
+
+      - name: Stop running containers
         run: |
-          java -version
-          echo "Java is already installed"
-        continue-on-error: true
+          # Stop and remove existing containers with the same name
+          docker stop my-spring-container || true
+          docker rm my-spring-container || true
 
-      - name: Install Java
-        if: ${{ failure() }}
-        run: |
-          sudo apt-get update -y && sudo apt-get install -y openjdk-17-jdk
-
-      - name: Build with Maven
-        run: |
-          cd demo
-          mvn clean install -f pom.xml
-
-      - name: Stop the systemd service
-        run: |
-          sudo systemctl stop my-spring-app
-
-      - name: Clean deploy folder
-        run: |
-          rm -rf deploy
-
-      - name: Copy JAR files to deploy folder
-        run: |
-          mkdir deploy
-          cp demo/target/*.jar deploy/
-
-      - name: Check if systemd service file exists
-        id: check_service_file
-        run: |
-          if [ -f /etc/systemd/system/my-spring-app.service ]; then
-            echo "::set-output name=exists::true"
-          else
-            echo "::set-output name=exists::false"
-          fi
-
-      - name: Create systemd service file
-        run: |
-          if [[ "${{ steps.check_service_file.outputs.exists }}" == "false" ]]; then
-            jar_path=$(find deploy -name '*.jar' -type f)
-            if [[ -n $jar_path ]]; then
-              echo "[Unit]
-              Description=My Spring Boot Application
-              After=syslog.target
-
-              [Service]
-              User=spring
-              ExecStart=/usr/bin/java -jar $jar_path
-              Restart=always
-              SuccessExitStatus=143
-
-              [Install]
-              WantedBy=multi-user.target" | sudo tee /etc/systemd/system/my-spring-app.service
-            else
-              echo "No JAR file found in the deploy directory."
-              exit 1
-            fi
-          else
-            echo "Systemd service file already exists. Skipping creation."
-
-      - name: Enable and start the systemd service
-        run: |
-          sudo systemctl enable my-spring-app
-
-      - name: Start the systemd service
-        run: |
-          sudo systemctl start my-spring-app
+      - name: Start new container
+        run: docker run -d --name my-spring-container -p 8080:8080 my-spring-app
