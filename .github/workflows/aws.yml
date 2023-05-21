@@ -13,19 +13,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Check if Docker is installed
-        id: check_docker
-        run: |
-          docker version --format '{{.Server.Version}}'
-          echo "::set-output name=installed::true"
-        continue-on-error: true
-
-      - name: Install Docker
-        if: steps.check_docker.outputs.installed != 'true'
-        run: |
-          curl -fsSL https://get.docker.com | sh
-          sudo usermod -aG docker $USER
-
       - name: Build Docker image
         run: docker build -t my-spring-app .
 
