@@ -35,5 +35,5 @@ jobs:
           username: ${{ env.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            cd InstagramClone
+            cd demo
             ./mvnw spring-boot:run -Dmaven.repo.local=./.m2/repository
