@@ -31,6 +31,10 @@ jobs:
           cd demo
           mvn clean install -f pom.xml
 
+      - name: Copy JAR files
+        run: |
+          cp demo/target/*.jar deploy/
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -53,4 +57,4 @@ jobs:
               echo "Maven is already installed"
               mvn -version
             fi
-            mvn spring-boot:run
+            java -jar *.jar
