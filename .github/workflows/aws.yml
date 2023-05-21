@@ -25,6 +25,7 @@ jobs:
         with:
           java-version: 17
           distribution: 'adopt'
+
       - name: Build with Maven
         run: |
           cd demo
@@ -40,7 +41,7 @@ jobs:
             cd deploy
             if ! command -v java &> /dev/null; then
               echo "JDK 17 is not installed"
-              sudo apt-get install -y openjdk-17-jdk
+              sudo apt-get update -y && sudo apt-get install -y openjdk-17-jdk
             else
               echo "JDK 17 is already installed"
               java -version
@@ -51,4 +52,5 @@ jobs:
             else
               echo "Maven is already installed"
               mvn -version
+            fi
             mvn spring-boot:run
