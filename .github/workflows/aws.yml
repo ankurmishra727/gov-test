@@ -20,11 +20,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Grant execute permissions to mvnw script
+        run: chmod +x InstagramClone/mvnw
+
       - name: Install dependencies and build
         run: |
           cd InstagramClone
-          chmod +x mvnw
-          ./mvnw clean install
+          ./mvnw clean install -Dmaven.repo.local=./.m2/repository
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -34,5 +36,4 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             cd /path/to/your/application
-            ./mvnw spring-boot:run
-
+            ./mvnw spring-boot:run -Dmaven.repo.local=./.m2/repository
