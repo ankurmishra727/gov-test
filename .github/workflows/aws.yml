@@ -38,18 +38,4 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             cd deploy
-            if ! command -v java &> /dev/null; then
-              echo "JDK 17 is not installed"
-              sudo apt-get update -y && sudo apt-get install -y openjdk-17-jdk
-            else
-              echo "JDK 17 is already installed"
-              java -version
-            fi
-            if ! command -v mvn &> /dev/null; then
-              echo "Maven is not installed"
-              sudo apt-get install -y maven
-            else
-              echo "Maven is already installed"
-              mvn -version
-            fi
-            java -jar target/*.jar
+            ls
